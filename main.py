@@ -2,21 +2,14 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
 
 # Load the dataset
 df = pd.read_csv("world-happiness-report-2021.csv")
 
 # Clean column names for easy access
 df.columns = df.columns.str.strip().str.replace(" ", "_").str.lower()
-
-# Rename columns for better readability
-df.rename(columns={
-    "ladder_score": "happiness_score",
-    "logged_gdp_per_capita": "gdp_per_capita_log",
-    "social_support": "social_support_index",
-    "healthy_life_expectancy": "life_expectancy_years",
-    "freedom_to_make_life_choices": "freedom_of_choice_score"
-}, inplace=True)
 
 
 # Function to compute statistics
@@ -26,69 +19,152 @@ def compute_statistics(x, y):
     var_x = df[x].var()
     var_y = df[y].var()
     covariance = df[[x, y]].cov().iloc[0, 1]
+
     return mean_x, mean_y, var_x, var_y, covariance
 
 
-# Function to plot scatter plot with regression lines
-def plot_with_regression(ax, x, y, title, xlabel, ylabel):
-    mean_x, mean_y, var_x, var_y, covariance = compute_statistics(x, y)
+# First plot: Ladder score vs Logged GDP per capita
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x=df["logged_gdp_per_capita"], y=df["ladder_score"])
+plt.title("Ladder Score vs Logged GDP per capita")
+plt.xlabel("Logged GDP per capita")
+plt.ylabel("Ladder Score")
 
-    # Scatter plot
-    sns.scatterplot(x=df[x], y=df[y], label="Data Points", color="blue", ax=ax)
+# Linear regression for the first plot
+regressor = LinearRegression().fit(df[["logged_gdp_per_capita"]], df["ladder_score"])
+df["regression_line_1"] = regressor.predict(df[["logged_gdp_per_capita"]])
+plt.plot(df["logged_gdp_per_capita"], df["regression_line_1"], color="blue", label="Linear Regression", linewidth=2)
 
-    # Generate points for regression
-    x_vals = np.linspace(df[x].min(), df[x].max(), 100)
+# Polynomial regression (quadratic)
+poly_features = PolynomialFeatures(degree=2)
+X_poly = poly_features.fit_transform(df[["logged_gdp_per_capita"]])
 
-    # Linear Regression
-    linear_coeffs = np.polyfit(df[x], df[y], 1)
-    linear_fit = np.polyval(linear_coeffs, x_vals)
-    ax.plot(x_vals, linear_fit, label="Linear Fit (Red)", color="red")
+# Generate a smooth line for the quadratic regression
+X_range = np.linspace(df["logged_gdp_per_capita"].min(), df["logged_gdp_per_capita"].max(), 100).reshape(-1, 1)
+X_range_poly = poly_features.transform(X_range)
+poly_regressor = LinearRegression().fit(X_poly, df["ladder_score"])
+y_poly_pred = poly_regressor.predict(X_range_poly)
 
-    # Quadratic Regression
-    quadratic_coeffs = np.polyfit(df[x], df[y], 2)
-    quadratic_fit = np.polyval(quadratic_coeffs, x_vals)
-    ax.plot(x_vals, quadratic_fit, label="Quadratic Fit (Green)", color="green")
+# Plot the quadratic regression line
+plt.plot(X_range, y_poly_pred, color="red", label="Quadratic Regression", linewidth=2)  # Single smooth line
 
-    # Add statistics as a small box at the bottom right
-    stats_text = (f"Mean {xlabel}: {mean_x:.2f}\nMean {ylabel}: {mean_y:.2f}\n"
-                  f"Var {xlabel}: {var_x:.2f}\nVar {ylabel}: {var_y:.2f}\n"
-                  f"Cov: {covariance:.2f}")
+# Add a legend for regression lines
+plt.legend()
 
-    ax.text(0.97, 0.03, stats_text, transform=ax.transAxes, fontsize=9,
-            bbox=dict(facecolor='white', alpha=0.6, edgecolor='black'),
-            verticalalignment='bottom', horizontalalignment='right')
+# Compute and display statistics for the first plot
+mean_x, mean_y, var_x, var_y, covariance = compute_statistics("logged_gdp_per_capita", "ladder_score")
+data_text = f"Mean of GDP: {mean_x:.4f}\nMean of Ladder Score: {mean_y:.4f}\nVariance of GDP: {var_x:.4f}\nVariance of Ladder Score: {var_y:.4f}\nCovariance: {covariance:.4f}"
+plt.text(0.95, 0.05, data_text, transform=plt.gca().transAxes, fontsize=12, verticalalignment='bottom',
+         horizontalalignment='right', bbox=dict(facecolor='white', alpha=0.7))
 
-    # Set plot labels and title
-    ax.set_title(title)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+plt.show(block=True)
 
-    # Show legend with regression line colors
-    ax.legend(loc="upper left")
+# Second plot: Ladder score vs Social Support
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x=df["social_support"], y=df["ladder_score"])
+plt.title("Ladder Score vs Social Support")
+plt.xlabel("Social Support")
+plt.ylabel("Ladder Score")
 
+# Linear regression for the second plot
+regressor = LinearRegression().fit(df[["social_support"]], df["ladder_score"])
+df["regression_line_3"] = regressor.predict(df[["social_support"]])
+plt.plot(df["social_support"], df["regression_line_3"], color="blue", label="Linear Regression", linewidth=2)
 
-# Create a figure with multiple subplots (2 rows, 2 columns)
-fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+# Polynomial regression (quadratic)
+poly_features = PolynomialFeatures(degree=2)
+X_poly = poly_features.fit_transform(df[["social_support"]])
 
-# Generate plots in a grid layout with improved labels
-plot_with_regression(axes[0, 0], "gdp_per_capita_log", "happiness_score",
-                     "Happiness vs GDP per Capita",
-                     "GDP per Capita (Log Scale)", "Happiness Score")
+# Generate a smooth line for the quadratic regression
+X_range = np.linspace(df["social_support"].min(), df["social_support"].max(), 100).reshape(-1, 1)
+X_range_poly = poly_features.transform(X_range)
+poly_regressor = LinearRegression().fit(X_poly, df["ladder_score"])
+y_poly_pred = poly_regressor.predict(X_range_poly)
 
-plot_with_regression(axes[0, 1], "social_support_index", "happiness_score",
-                     "Happiness vs Social Support",
-                     "Social Support Index", "Happiness Score")
+# Plot the quadratic regression line
+plt.plot(X_range, y_poly_pred, color="red", label="Quadratic Regression", linewidth=2)  # Single smooth line
 
-plot_with_regression(axes[1, 0], "life_expectancy_years", "happiness_score",
-                     "Happiness vs Life Expectancy",
-                     "Life Expectancy (Years)", "Happiness Score")
+# Add a legend for regression lines
+plt.legend()
 
-plot_with_regression(axes[1, 1], "freedom_of_choice_score", "happiness_score",
-                     "Happiness vs Freedom of Choice",
-                     "Freedom of Choice Score", "Happiness Score")
+# Compute and display statistics for the second plot
+mean_x, mean_y, var_x, var_y, covariance = compute_statistics("social_support", "ladder_score")
+data_text = f"Mean of Social Support: {mean_x:.4f}\nMean of Ladder Score: {mean_y:.4f}\nVariance of Social Support: {var_x:.4f}\nVariance of Ladder Score: {var_y:.4f}\nCovariance: {covariance:.4f}"
+plt.text(0.95, 0.05, data_text, transform=plt.gca().transAxes, fontsize=12, verticalalignment='bottom',
+         horizontalalignment='right', bbox=dict(facecolor='white', alpha=0.7))
 
-# Adjust layout for clarity
-plt.tight_layout()
+plt.show(block=True)
 
-# Show all plots at the same time
-plt.show()
+# Third plot: Ladder score vs Healthy life expectancy
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x=df["healthy_life_expectancy"], y=df["ladder_score"])
+plt.title("Ladder Score vs Healthy Life Expectancy")
+plt.xlabel("Healthy Life Expectancy")
+plt.ylabel("Ladder Score")
+
+# Linear regression for the third plot
+regressor = LinearRegression().fit(df[["healthy_life_expectancy"]], df["ladder_score"])
+df["regression_line_5"] = regressor.predict(df[["healthy_life_expectancy"]])
+plt.plot(df["healthy_life_expectancy"], df["regression_line_5"], color="blue", label="Linear Regression", linewidth=2)
+
+# Polynomial regression (quadratic)
+poly_features = PolynomialFeatures(degree=2)
+X_poly = poly_features.fit_transform(df[["healthy_life_expectancy"]])
+
+# Generate a smooth line for the quadratic regression
+X_range = np.linspace(df["healthy_life_expectancy"].min(), df["healthy_life_expectancy"].max(), 100).reshape(-1, 1)
+X_range_poly = poly_features.transform(X_range)
+poly_regressor = LinearRegression().fit(X_poly, df["ladder_score"])
+y_poly_pred = poly_regressor.predict(X_range_poly)
+
+# Plot the quadratic regression line
+plt.plot(X_range, y_poly_pred, color="red", label="Quadratic Regression", linewidth=2)  # Single smooth line
+
+# Add a legend for regression lines
+plt.legend()
+
+# Compute and display statistics for the third plot
+mean_x, mean_y, var_x, var_y, covariance = compute_statistics("healthy_life_expectancy", "ladder_score")
+data_text = f"Mean of Life Expectancy: {mean_x:.4f}\nMean of Ladder Score: {mean_y:.4f}\nVariance of Life Expectancy: {var_x:.4f}\nVariance of Ladder Score: {var_y:.4f}\nCovariance: {covariance:.4f}"
+plt.text(0.95, 0.05, data_text, transform=plt.gca().transAxes, fontsize=12, verticalalignment='bottom',
+         horizontalalignment='right', bbox=dict(facecolor='white', alpha=0.7))
+
+plt.show(block=True)
+
+# Fourth plot: Ladder score vs Freedom to make life choices
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x=df["freedom_to_make_life_choices"], y=df["ladder_score"])
+plt.title("Ladder Score vs Freedom to Make Life Choices")
+plt.xlabel("Freedom to Make Life Choices")
+plt.ylabel("Ladder Score")
+
+# Linear regression for the fourth plot
+regressor = LinearRegression().fit(df[["freedom_to_make_life_choices"]], df["ladder_score"])
+df["regression_line_7"] = regressor.predict(df[["freedom_to_make_life_choices"]])
+plt.plot(df["freedom_to_make_life_choices"], df["regression_line_7"], color="blue", label="Linear Regression",
+         linewidth=2)
+
+# Polynomial regression (quadratic)
+poly_features = PolynomialFeatures(degree=2)
+X_poly = poly_features.fit_transform(df[["freedom_to_make_life_choices"]])
+
+# Generate a smooth line for the quadratic regression
+X_range = np.linspace(df["freedom_to_make_life_choices"].min(), df["freedom_to_make_life_choices"].max(), 100).reshape(
+    -1, 1)
+X_range_poly = poly_features.transform(X_range)
+poly_regressor = LinearRegression().fit(X_poly, df["ladder_score"])
+y_poly_pred = poly_regressor.predict(X_range_poly)
+
+# Plot the quadratic regression line
+plt.plot(X_range, y_poly_pred, color="red", label="Quadratic Regression", linewidth=2)  # Single smooth line
+
+# Add a legend for regression lines
+plt.legend()
+
+# Compute and display statistics for the fourth plot
+mean_x, mean_y, var_x, var_y, covariance = compute_statistics("freedom_to_make_life_choices", "ladder_score")
+data_text = f"Mean of Freedom: {mean_x:.4f}\nMean of Ladder Score: {mean_y:.4f}\nVariance of Freedom: {var_x:.4f}\nVariance of Ladder Score: {var_y:.4f}\nCovariance: {covariance:.4f}"
+plt.text(0.95, 0.05, data_text, transform=plt.gca().transAxes, fontsize=12, verticalalignment='bottom',
+         horizontalalignment='right', bbox=dict(facecolor='white', alpha=0.7))
+
+plt.show(block=True)
